@@ -1,5 +1,7 @@
 package net.sebis.reimerei;
 
+import net.sebis.reimerei.runners.Sorter;
+
 import java.io.*;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
@@ -8,12 +10,17 @@ import java.util.*;
 
 public class Main {
 
+    private static Main instance;
+
+    private final List<Thread> threads = new ArrayList<>();
+    private int fin = 0;
+
     private final List<String> vocals = new ArrayList<>();
     private final URL Examples0 = new URL("https://bwinf.de/fileadmin/bundeswettbewerb/41/reimerei0.txt");
     private final URL Examples1 = new URL("https://bwinf.de/fileadmin/bundeswettbewerb/41/reimerei1.txt");
     private final URL Examples2 = new URL("https://bwinf.de/fileadmin/bundeswettbewerb/41/reimerei2.txt");
     private final URL Examples3 = new URL("https://bwinf.de/fileadmin/bundeswettbewerb/41/reimerei3.txt");
-    private final URL AllGermanWords = new URL("https://gist.githubusercontent.com/MarvinJWendt/2f4f4154b8ae218600eb091a5706b5f4/raw/36b70dd6be330aa61cd4d4cdfda6234dcb0b8784/wordlist-german.txt");
+    //private final URL AllGermanWords = new URL("https://gist.githubusercontent.com/MarvinJWendt/2f4f4154b8ae218600eb091a5706b5f4/raw/36b70dd6be330aa61cd4d4cdfda6234dcb0b8784/wordlist-german.txt");
     private final HashMap<String, URL> urls = new HashMap<>();
 
     private final List<String> words = new ArrayList<>();
@@ -23,11 +30,13 @@ public class Main {
 
     private final DecimalFormat df = new DecimalFormat("##.##");
 
-    public static void main(String[] args) throws IOException {
+    public static void main(String[] args) throws IOException, InterruptedException {
         new Main();
     }
 
-    public Main() throws IOException {
+    public Main() throws IOException, InterruptedException {
+        instance = this;
+
         System.setOut(new PrintStream(new FileOutputStream(FileDescriptor.out), true, StandardCharsets.UTF_8));
         String[] vocals = new String[]{"a", "e", "i", "o", "u", "ä", "ö", "ü", "y"};
         this.vocals.addAll(Arrays.stream(vocals).toList());
@@ -39,6 +48,7 @@ public class Main {
     }
 
     public void collectURLMap() {
+        // Put all examples in the previously created HashMap
         urls.put("Examples0.txt", getExamples0());
         urls.put("Examples1.txt", getExamples1());
         urls.put("Examples2.txt", getExamples2());
@@ -46,6 +56,7 @@ public class Main {
     }
 
     public void readWords() throws IOException {
+        // Select word list
         System.out.println("Select word pallet: ");
         int n = 0;
         for (String example : urls.keySet().stream().toList()) {
@@ -74,6 +85,7 @@ public class Main {
             url = new URL(input);
         }
 
+        // Read URL line by line with Scanner
         System.out.println("Downloading...");
         Scanner s = new Scanner(url.openStream());
         while (s.hasNextLine()) {
@@ -86,39 +98,33 @@ public class Main {
         System.out.println("Done - " + words.size());
     }
 
-    public void sort() {
+    public void sort() throws InterruptedException {
         System.out.println("Sorting words in the table...");
-        long wordCount = words.size();
-        float i = 0;
-        for (String word : words) {
-            String group = getRhymeGroup(word);
-            List<String> rhymes = new ArrayList<>();
-            for (String testW : words) {
-                if (getRhymeGroup(testW).equalsIgnoreCase(group) && !testW.toLowerCase().endsWith(word.toLowerCase()) &&
-                        !word.toLowerCase().endsWith(testW.toLowerCase())) {
-                    rhymes.add(testW);
-                }
-            }
-            if (rhymes.size() > 0) {
-                groups.put(word, rhymes);
-            }
-            i++;
-            float percent = i/wordCount*100;
-            System.out.print("|" + "=".repeat(Math.round(percent)) + " ".repeat(100-Math.round(percent)) + "| " + df.format(percent) + "%\r");
+
+        // Start sorting thread
+        Thread thread = new Thread(new Sorter(1, words, groups));
+        threads.add(thread);
+        thread.start();
+        while (fin < threads.size()) {
+            Thread.sleep(10);
         }
         System.out.println("Done");
     }
 
     public void output() {
+
+        // Select output format
         System.out.println("Select output type: ");
         System.out.println("   1: Console");
-        System.out.println("   2: table.md");
+        System.out.println("   2: table.md (recommended)");
         System.out.print("> ");
         String input = s.nextLine();
         while (input.isBlank() || (!input.equals("1") && !input.equals("2"))) {
             System.out.print("> ");
             input = s.nextLine();
         }
+
+        // Generating Table in Github markdown format
         System.out.println("Generating output table...");
 
         StringBuilder table = new StringBuilder("| ");
@@ -167,6 +173,7 @@ public class Main {
             table.append("\n");
         }
 
+        // Outputting table in console or table markdown file
         if (input.equals("1")) {
             System.out.println(table);
         } else {
@@ -175,9 +182,12 @@ public class Main {
     }
 
     public String getRhymeGroup(String word) {
+        // get the rhyme group of the given word
         List<String> vGroups = new ArrayList<>();
 
         for (int i=0;i<word.length();i++) {
+            // go through the word charakter by charakter and find all vocal groups
+            // with their following consonants
             StringBuilder group = new StringBuilder();
             while (i < word.length() && vocals.contains(word.toLowerCase().charAt(i)+"")) {
                 group.append(word.charAt(i));
@@ -193,6 +203,7 @@ public class Main {
             }
         }
 
+        // build the important group of the last vocal group
         String rhymeGroup;
         if (vGroups.size() >= 2) {
             rhymeGroup = vGroups.get(vGroups.size()-2) + vGroups.get(vGroups.size()-1);
@@ -202,16 +213,17 @@ public class Main {
             rhymeGroup = "{N/A}";
         }
 
-        if (rhymeGroup.equalsIgnoreCase(word)) {
+        if (rhymeGroup.equalsIgnoreCase(word)) { // make the word invalid if the full word is equal to the rhyme group
             rhymeGroup = "{N/A}";
-        } else if (rhymeGroup.length()<Math.round(word.length()/2F)) {
+        } else if (rhymeGroup.length()<Math.round(word.length()/2F)) { // make the word invalid if the rhyme group is shorter than half of the word
             rhymeGroup = "{N/A}";
         }
 
         return rhymeGroup;
     }
 
-    public static void writeInFile(String text, String fileName) {
+    public void writeInFile(String text, String fileName) {
+        // outputting text to file with BufferedWriter
         if (text.equals("")) {
             return;
         }
@@ -225,6 +237,10 @@ public class Main {
             e.printStackTrace();
         }
 
+    }
+
+    public static Main getInstance() {
+        return instance;
     }
 
     public URL getExamples0() {
@@ -243,7 +259,15 @@ public class Main {
         return Examples3;
     }
 
-    public URL getAllGermanWords() {
-        return AllGermanWords;
+    public int getFin() {
+        return fin;
+    }
+
+    public void setFin(int fin) {
+        this.fin = fin;
+    }
+
+    public DecimalFormat getDf() {
+        return df;
     }
 }
