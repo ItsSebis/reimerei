@@ -12,7 +12,7 @@ public class Main {
 
     private static Main instance;
 
-    private final List<Thread> threads = new ArrayList<>();
+    private final HashMap<Integer, Integer> threads = new HashMap<>();
     private int fin = 0;
 
     private final List<String> vocals = new ArrayList<>();
@@ -20,7 +20,7 @@ public class Main {
     private final URL Examples1 = new URL("https://bwinf.de/fileadmin/bundeswettbewerb/41/reimerei1.txt");
     private final URL Examples2 = new URL("https://bwinf.de/fileadmin/bundeswettbewerb/41/reimerei2.txt");
     private final URL Examples3 = new URL("https://bwinf.de/fileadmin/bundeswettbewerb/41/reimerei3.txt");
-    //private final URL AllGermanWords = new URL("https://gist.githubusercontent.com/MarvinJWendt/2f4f4154b8ae218600eb091a5706b5f4/raw/36b70dd6be330aa61cd4d4cdfda6234dcb0b8784/wordlist-german.txt");
+    //https://gist.githubusercontent.com/MarvinJWendt/2f4f4154b8ae218600eb091a5706b5f4/raw/36b70dd6be330aa61cd4d4cdfda6234dcb0b8784/wordlist-german.txt
     private final HashMap<String, URL> urls = new HashMap<>();
 
     private final List<String> words = new ArrayList<>();
@@ -101,14 +101,29 @@ public class Main {
     public void sort() throws InterruptedException {
         System.out.println("Sorting words in the table...");
 
-        // Start sorting thread
-        Thread thread = new Thread(new Sorter(1, words, groups));
-        threads.add(thread);
-        thread.start();
+        // set number of threads to use for sorting
+        int threadCount = 4;
+
+        for (int i = 1; i <= threadCount; i++) {
+            // Start sorting threads
+            Thread thread = new Thread(new Sorter(i, threadCount, words, groups));
+            threads.put(i, 0);
+            thread.start();
+        }
+
+
         while (fin < threads.size()) {
+            float done = 0;
+            for (int t : getThreads().keySet()) {
+                done += getThreads().get(t);
+            }
+
+            float percent = done / words.size() * 100;
+            System.out.print("|" + "=".repeat(Math.round(percent)) + " ".repeat(100 - Math.round(percent)) + "| " + Main.getInstance().getDf().format(percent) + "% " + done + "\r");
+
             Thread.sleep(10);
         }
-        System.out.println("Done");
+        System.out.println("Done" + threads);
     }
 
     public void output() {
@@ -269,5 +284,9 @@ public class Main {
 
     public DecimalFormat getDf() {
         return df;
+    }
+
+    public HashMap<Integer, Integer> getThreads() {
+        return threads;
     }
 }
