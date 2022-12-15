@@ -5,7 +5,6 @@ Das Programm erkennt den für einen Reim wichtigen Teil jedes Wortes und verglei
 ## Implementierung in ein Java Programm
 Zuerst fordert das Programm die Auswahl der Wortpalette und lädt diese dann in eine Liste:
 ```
-
 System.out.println("Select word pallet: ");
         int n = 0;
         for (String example : urls.keySet().stream().toList()) {
@@ -33,8 +32,9 @@ if (c < urls.values().stream().toList().size()) {
   }
   url = new URL(
 }
+```
 
-```
+
 Reimgruppe wird ermittelt indem:
 - eine Liste mit allen Vokalgruppen erstellen und alle hinzufügen
 - wenn vorhanden, die letzten zwei Vokalgruppen mit allen folgenden Konsonanten zurückgeben, sonst nur eine
@@ -98,7 +98,8 @@ for (int i = 1; i <= threadCount; i++) {
     Thread thread = new Thread(new Sorter(i, threadCount, words, groups));
     threads.put(i, 0);
     thread.start();
-}```
+}
+```
 ```
 public class Sorter extends Thread implements Runnable {
 
@@ -214,6 +215,7 @@ public void output() {
     } else {
         writeInFile(table.toString(), "table.md");
     }
-}```
+}
+```
 
 Die Lösungen der Beispiele befinden sich in der table.md Datei im Ordner der Ausführbaren JAR Datei.
